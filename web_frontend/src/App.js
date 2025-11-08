@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
+import { AuthProvider, useAuth } from './context/AuthProvider';
 
 // Theme tokens - Ocean Professional
 const themeTokens = {
@@ -73,7 +74,85 @@ export function createApiClient() {
 }
 
 // --- Layout Components --- //
+function ProfileMenu({ theme }) {
+  const { user, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  const toggle = useCallback(() => setOpen(o => !o), []);
+  const handleSignOut = async () => {
+    await signOut();
+    setOpen(false);
+  };
+
+  const initials = user?.email ? user.email[0]?.toUpperCase() : 'G';
+  const label = user?.email || 'Guest';
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={toggle}
+        className="btn"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          background: themeTokens.surface,
+          border: '1px solid rgba(17,24,39,0.08)',
+          borderRadius: 999,
+          boxShadow: themeTokens.shadow,
+          cursor: 'pointer'
+        }}
+      >
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #2563EB, #3B82F6)',
+          color: 'white', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700
+        }}>{initials}</div>
+        <span style={{ fontSize: 13, color: 'rgba(17,24,39,0.8)' }}>{label}</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 'calc(100% + 8px)',
+            background: themeTokens.surface,
+            border: '1px solid rgba(17,24,39,0.08)',
+            borderRadius: 12,
+            boxShadow: themeTokens.shadow,
+            minWidth: 180,
+            padding: 8,
+            zIndex: 50
+          }}
+        >
+          <button
+            onClick={handleSignOut}
+            className="btn"
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              background: themeTokens.surface,
+              color: themeTokens.text,
+              border: '1px solid rgba(17,24,39,0.1)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              cursor: 'pointer',
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Header({ onToggleTheme, theme }) {
+  const { user } = useAuth();
   return (
     <header style={{
       background: `linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(249, 250, 251, 1))`,
@@ -136,27 +215,7 @@ function Header({ onToggleTheme, theme }) {
           >
             Quick Action
           </button>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 10px',
-              background: themeTokens.surface,
-              border: '1px solid rgba(17,24,39,0.08)',
-              borderRadius: 999,
-              boxShadow: themeTokens.shadow,
-            }}
-            title="User info placeholder"
-          >
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #2563EB, #3B82F6)'
-            }} />
-            <span style={{ fontSize: 13, color: 'rgba(17,24,39,0.8)' }}>Guest</span>
-          </div>
+          <ProfileMenu theme={theme} />
         </div>
       </div>
     </header>
@@ -191,7 +250,82 @@ function SideNav() {
       <NavLink to="/history" style={({ isActive }) => ({ ...baseItemStyle, ...(isActive ? activeStyle : {}) })}>
         🗂️ History
       </NavLink>
+      <NavLink to="/signin" style={({ isActive }) => ({ ...baseItemStyle, ...(isActive ? activeStyle : {}) })}>
+        🔐 Sign In
+      </NavLink>
     </nav>
+  );
+}
+
+function SignInPage() {
+  const { signInWithEmail } = useAuth();
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setStatus(null);
+    const res = await signInWithEmail(email);
+    if (res.ok) {
+      setStatus({ type: 'success', message: 'Magic link sent! Check your email to complete sign in.' });
+    } else {
+      setStatus({ type: 'error', message: res.error || 'Sign-in failed' });
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <section style={cardStyle()}>
+        <h2 style={cardTitleStyle()}>Sign In</h2>
+        <p style={{ color: 'rgba(17,24,39,0.7)', marginTop: 0 }}>
+          Use your work email. We’ll send you a magic link to sign in.
+        </p>
+        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+          <div>
+            <label htmlFor="email" style={labelStyle()}>Email</label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              style={{
+                width: '100%',
+                borderRadius: 12,
+                border: '1px solid rgba(17,24,39,0.15)',
+                padding: 12,
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="submit" disabled={loading} style={primaryButtonStyle()}>
+              {loading ? 'Sending...' : 'Send Magic Link'}
+            </button>
+            <span style={{ fontSize: 12, color: 'rgba(17,24,39,0.6)' }}>
+              You will be redirected back after clicking the link.
+            </span>
+          </div>
+          {status && (
+            <div role="status" style={{
+              marginTop: 6,
+              padding: '10px 12px',
+              borderRadius: 10,
+              color: status.type === 'success' ? '#065f46' : '#7f1d1d',
+              background: status.type === 'success' ? '#d1fae5' : '#fee2e2',
+              border: `1px solid ${status.type === 'success' ? '#10b981' : '#ef4444'}`,
+            }}>
+              {status.message}
+            </div>
+          )}
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -367,18 +501,24 @@ const pillLinkStyle = () => ({
   fontWeight: 700,
 });
 
-// --- Auth placeholder hook --- //
-function useAuthPlaceholder() {
-  // TODO: integrate real auth (OAuth/OIDC). For now, simulate logged in user.
-  const [user, setUser] = useState({ name: 'Guest', id: null });
-  return { user, setUser };
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div style={cardStyle()}>Loading...</div>;
+  }
+  if (!user) {
+    return <Navigate to="/signin" replace state={{ from: location }} />;
+  }
+  return children;
 }
 
 // --- Shell Layout --- //
 function Shell() {
   const [theme, setTheme] = useState('light');
   const api = useMemo(() => createApiClient(), []);
-  const { user } = useAuthPlaceholder();
+  const { user } = useAuth();
 
   useEffect(() => {
     document.body.style.background = themeTokens.background;
@@ -421,15 +561,24 @@ function Shell() {
           <SideNav />
           <div style={{ padding: 12, borderTop: '1px dashed rgba(17,24,39,0.08)', fontSize: 12, color: 'rgba(17,24,39,0.6)' }}>
             <div title="Feature flags">Flags: {(api.featureFlags || []).join(', ') || 'none'}</div>
-            <div>User: {user?.name || 'Anonymous'}</div>
+            <div>User: {user?.email || 'Anonymous'}</div>
           </div>
         </aside>
         <main style={{ display: 'block', minWidth: 0 }}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage api={api} />} />
-            <Route path="/reports" element={<ReportsPage api={api} />} />
-            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <ReportsPage api={api} />
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/signin" element={<SignInPage />} />
             <Route path="*" element={<div style={cardStyle()}>Not Found</div>} />
           </Routes>
         </main>
@@ -446,7 +595,9 @@ function App() {
    */
   return (
     <Router>
-      <Shell />
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
     </Router>
   );
 }

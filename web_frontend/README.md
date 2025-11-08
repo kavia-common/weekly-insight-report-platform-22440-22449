@@ -27,6 +27,28 @@ Launches the test runner in interactive watch mode.
 Builds the app for production to the `build` folder.\
 It correctly bundles React in production mode and optimizes the build for the best performance.
 
+## Supabase Authentication
+
+This app integrates Supabase for authentication via magic link.
+
+1. Copy `.env.example` to `.env` and set:
+   - `REACT_APP_SUPABASE_URL`
+   - `REACT_APP_SUPABASE_ANON_KEY`
+   - Optionally set `REACT_APP_FRONTEND_URL` (defaults to `window.location.origin`) for magic link redirects.
+
+2. Start the app with `npm start`. The Dashboard is public, while Reports and History require authentication.
+
+3. Sign in:
+   - Navigate to the "Sign In" link in the left navigation or go to `/signin`.
+   - Enter your email to receive a magic link.
+
+4. Sign out:
+   - Use the profile dropdown in the top-right header.
+
+Notes:
+- The auth provider listens for Supabase `onAuthStateChange` and persists sessions.
+- The UI follows the Ocean Professional theme with blue and amber accents.
+
 ## Customization
 
 ### Colors
